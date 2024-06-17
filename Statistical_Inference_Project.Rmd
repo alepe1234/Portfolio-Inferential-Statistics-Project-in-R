@@ -1,0 +1,582 @@
+---
+title: "Inferential Statistics on US General Social Survey (GSS) dataset"
+author: "Alessandro Pelliccioni"
+date: June 5, 2024
+---
+
+## 1. Introduction
+
+This project was developed during the study of the Coursera course "Inferential 
+Statistics" by Duke University. The dataset in use id the US General Social Survey
+cumulative file, which includes years 1972-2012. This projects aims to answer the
+following questions using statistical inference tests:
+
+1. Is there a relationship between political view (think of self as liberal or
+   conservative) and political party affiliation?
+
+2. Differences in unemployement rate between genders during the years
+
+3. Race representation among unemployemed
+
+4. Income disparity baser on region of interview
+
+## 2. Dataset Description
+
+GSS dataset is a Coursera extract of the original material published on the 
+website: https://www.norc.org/research/projects/gss.html.
+
+Description (source GSS project's webssite): In 1972, NORC received a grant from
+the National Science Foundation (NSF) to build equity and accessibility within 
+social science research. James A. Davis at the University of Chicago and thought
+leaders at NORC aimed to create a high-quality, unbiased, and easily accessible
+public opinion survey that cataloged America’s thoughts, feelings, and opinions 
+over time. That instrument, the General Social Survey, is now among NORC’s 
+signature projects. Over five decades, the GSS has compiled data from thousands 
+of Americans about their evolving characteristics and attitudes.
+
+This modified version of the GSS dataset consists of 57061 observations with 
+114 variables, collected from year 1972 and 2012. Each variable represents the 
+answer to a specific question asked to the interviewed sample. 
+Not every question is applicable to every respondent.
+
+The survey is conducted by random sampling, the results from this project 
+can be generalized to the entire US population. The statistical tests performed
+in this project can provide only a hint to a correlation between the variables, 
+non a proof of casual relationship.
+
+### 2.1 Load packages and data
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(lattice)
+```
+
+```{r load-data}
+load("gss.Rdata")
+```
+
+## 3. Is there a relationshio between political view and political party 
+	affiliation?
+
+Variables analyzed to answer this question:
+
+1. **polviews**: A categorical variable, a seven-point scale, on which the 
+	political views that people might hold are arranged from extremely 
+	liberal - point 1 - to extremely conservative - point 7.
+
+2. **partyid**: A categorical variable, an eight-point scale, on which the
+	political affiliation can be classified as either: 0 - strong Democrat
+	1 - not strong Democrat, 2 - Independent near Democrat, 3 - Independent
+	4 - Independent near Republican, 5 - not strong Republican, 
+	6 - strong Republican, 7 - Other party.
+
+In this study I will focus only in latest trends, so I will extract records
+from years 2002-2012 and store them in a new dataset. I will also remove rows
+with missing values in either variables.
+
+```{r}
+gss %>%
+  filter(year > 2002 & 
+           !is.na(polviews) &
+           !is.na(partyid)) %>%
+  select(polviews,partyid)  -> gss_pv
+
+dim(gss_pv)
+```
+
+The new dataset has a total 11370 rows from the starting 57061.
+
+### 3.1 Exploratory data analysis
+
+```{r}
+ggplot(data = gss_pv, aes(x = gss_pv$polviews))+ geom_bar() +
+labs(x = "Political view") +
+theme(axis.text.x = element_text(angle=60, hjust = 1))
+```
+
+We can see from this plot that the political views are normally distribuited
+around the central "moderate" value. (see file Political_View_Barplot.pdf)
+
+```{r}
+ggplot(data = gss_pv, aes(x = gss_pv$partyid))+ geom_bar() +
+labs(x = "Political affiliation") +
+theme(axis.text.x = element_text(angle=60, hjust = 1)) 
+```
+
+we can see from this plot that the political affiliation variable is more
+uniformly distribuited, except with a minimun count for "Other", and 
+maximums on the "Strong Democrat", "Not strong Democrat" and "Independent"
+counts (see file Politica_affiliation_variable_barplot.pdf)
+
+```{r}
+g <- ggplot(data = gss_pv, aes(x = gss_pv$polviews))
+g <- g + geom_bar(aes(fill = partyid), position = "dodge")
+g + theme(axis.text.x = element_text(angle=60,hjust = 1))
+```
+
+Putting the two variables together we see that the moderate group contains most 
+values and is quite equalli represented by political affiliation, except for 
+sharp peaks of "Not strongly Democrats" and "Independent". The "Liberal" tail
+seems to be dominated by democrats, and the "Conservative" tail by republicats,
+(see file Political_affiliation_and_views.pdf).
+
+Mosaic plots provide a good illustration of the relationship between two 
+categorical variables. The area of the tiles is proportional to the value 
+counts within a group. When tiles across groups all have same areas, 
+it indicates independence between the variables.
+
+```{r}
+plot(table(gss_pv), main = "Political affiliation VS political views",
+	xlab = "Political views", ylab = "Political affiliation")
+```
+
+The mosaic plot suggests an association of extreme liberal ideas with strong 
+democrat party affiliation and extreme conservative ideas with strong 
+republican assosiation. With the majority of interviewed being in the moderate
+political view category, which is quite evenly distribuited among
+political parties affiliation. (see file Mosaic_plot.pdf)
+
+### 3.2 Inference
+
+Hypothesis
+
+**Null hypothesis:** The frequency of political party affiliation and 
+the frequency of political views are independent.
+
+**Alternative hypothesis:** The frequency of political party affiliation and 
+the frequency of political views are independent.
+
+Check Conditions for a valid statistical analysis
+
+1. **Independence**: the GSS dataset is collected from a random sample survey. 
+We safely assume that the interviews are independent.
+
+2. **Sample Size**: samples are obtained without replacement, and must be
+less than 10% of the population. The dataset in use for this analysis consists
+of 11370 entries which is less than 10% of the US population.
+
+3. **Degrees of Freedom**: We have 7 frequency levels for the political views 
+variable and 8 frequency levels for the political party affiliation,
+As we have two categorical variables each with over 2 levels, we will utilize 
+the chi-squared test of independence to test the hypothesis.
+
+4. **Expected Counts**: To perform a valid chi-square test the expected counts
+for each cell should be at least 5. This must be still checked:
+
+```{r}
+chisq.test(gss_pv$polviews,gss_pv$partyid)$expected
+```
+
+From the above table we can see that every cell has an expected count of more
+than 5 values. We are allowed to go ahead and perform the chi-squared test.
+
+### 3.3 Chi-Square test of independence
+
+```{r}
+chisq.test(gss_pv$polviews,gss_pv$partyid)
+```
+
+The chi-squared value is 4130.3 and the corrisponding p-value for 42 degrees
+of freedom is much lower than the significance level of 0.05.
+We can now remove the dataset to free memory.
+
+```{r}
+rm(gss_pv)
+```
+
+### 3.4 Findings
+
+We have convincing evidence to reject the null hypothesis in favor 
+of the alternative hypothesis that the frequency of values in the different
+categories of political views and party affiliation are dependent. 
+The study is observational, so we can only establish association 
+but not causal links between these two variables.
+
+* * *
+
+## 4. Differences in unemployement rate between genders during the years
+
+Variables analyzed to answer this question:
+
+1. **unemp**: A categorical variable, yes or no scale, answering to the question
+	"have you been unemployed for more than a month in the last ten years"
+
+2. **sex**: A categorical variable indicating the gender of the respondent,
+	1 - male, 2 - female.
+
+3. **year**: we will check if has there been a change in the proportions during 
+	the years in moving from 1972 to 2012. 
+
+Prepare a simpler dataset
+
+```{r}
+gss %>%
+  filter(!is.na(sex) & !is.na(unemp) & !is.na(year)) %>%
+  select(sex,unemp,year) -> gss_job
+
+dim(gss_job)
+```
+
+The dataset has been reduced from 57061 to 35507 rows.
+
+### 4.1 Exploratory Data Analysys
+
+```{r}
+gss_job %>%
+  group_by(sex,year) %>%
+  summarise(prop = sum(unemp == "Yes")/n()) -> gss_job_prop
+
+ggplot(data=gss_job_prop, aes(x = year,y = prop)) + geom_smooth(aes(fill=sex))
+```
+
+The above figure display the loess regression curves for the unemployed 
+proportion in men and women, during the years 1972-2012,
+(see file Unemp_curve.pdf).
+
+*Observations*
+
+1. The proportion of unemployed females shows a steadily growin line from around
+25% in 1972 to around 35% in 2012.
+
+2. The curve for the males starts higher than the one for females in 1972, grows 
+up to a local maximum in 1985, decreases to a local minimum in 2000 and grows
+steadily to a maximum above 37,5% in 2012
+
+3. The curve describing male's unemployement rate seems to be all the time above
+the female's unemployement rate, hinting to a difference between the genders
+
+### 4.2 Inference
+
+Hypothesis
+
+**Null hypothesis**: The mean difference in proportions of men 
+and women who have been unemployed for more than a month in the last ten years,
+is zero.
+
+**Alternate hypothesis**: The mean difference in proportions of men 
+and women who have been unemployed for more than a month in the last ten years
+is greater than zero, with the proportion of unemployed men being higher
+than that of unemployed women.
+
+To test the hypothesis, we perform the test for two independent sample 
+proportions. 
+
+Check Conditions
+
+1. **Independence**: the GSS dataset is collected from a random sample survey. 
+We safely assume that the interviews are independent.
+
+2. **Sample size**: to be able to perform t-test to proportions in two independent
+groups, we have to check that the minimal condition of at least 10 entries is met
+in each cell of the 2x2 matrix describing gender(f/m) vs unemployed(y/n).
+In order to check that, we need to make some calculations:
+
+```{r}
+gss_job %>%
+  summarise(p_pool = sum(gss_job$unemp == "Yes")/n(), 
+            n_1 = sum(sex == "Female"),
+            n_2 = sum(sex == "Male"),
+            n_1_success = p_pool*n_1,
+            n_1_fails = (1-p_pool)*n_1,
+            n_2_success = p_pool*n_2,
+            n_2_fails = (1-p_pool)*n_2)
+```
+
+From the data printed by last function call, the values that fill our 2x2 matrix
+are in the form n_1_success meaning proportion of unemployed males and so on,
+which are all well above the 10 limit.
+
+### 4.3 Inference for proportion between two independent groups with t-test
+
+We use the function inference in stats package which was in use during the course
+
+```{r}
+inference(y = unemp, x = sex, data = gss_job, statistic = "proportion", 
+	type = "ht", null = 0, success="Yes", alternative ="greater",
+	 method = "theoretical")
+```
+
+The result is z = 8.1099 with a p-value of  < 0.0001, which is well the 
+significance level of 0.05. This gives us convincing evidence that there is
+indeed a difference in the proportion of unemployment between genders,
+we can reject the null hypothesis.
+We can now remove the dataset to free memory.
+
+```{r}
+rm(gss_job)
+```
+
+### 4.4 Findings
+
+We have convincing evidence to reject the null hypothesis in favor 
+of the alternative hypothesis that the proportion of unemployement is different
+between genders, during the years between 1972-2012.
+We have a strong evidence that the proportion of unemployed males has been
+higher during the years of the study.
+
+* * *
+
+## 5. Race representation among unemployed
+
+Variables analyzed to answer this question:
+
+1. **race**: Categorical variable indicating 1- white, 2 - black, 3 - other.
+	
+2. **unemp**: A categorical variable, yes or no scale, answering to the question
+	"have you been unemployed for more than a month in the last ten years"
+
+Let's prepare a simpler dataset with only these two variables:
+
+```{r}
+gss %>%
+  filter(!is.na(race) & !is.na(unemp)) %>%
+  select(race, unemp) -> gss_re
+
+dim(gss_re)
+```
+
+The dataset is reduced to 35507 rows and 2 columns.
+
+### 5.1 Exploratory Data Analysys
+
+Let's calculate what are the proportions of each etnic group in the dataset
+
+```{r}
+n_tot <- nrow(gss_re) ## total number of entries
+
+gss_re %>%
+  group_by(race) %>%
+  summarise(p = n()/n_tot) -> etnic_groups
+
+etnic_groups
+```
+
+results are:
+
+1 White         0.832 
+2 Black         0.123 
+3 Other         0.0448
+
+the "White" group has more of 80% of the share of the dataset.
+Let's calculate the expected proportion if there wouldn't be difference in
+unemployment rate between the different etnic groups.
+
+```{r}
+n_tot_unemp <- nrow(gss_re %>% filter(unemp == "Yes")) ## total number of unemployed
+
+## calculate expected amount of unemployed per etnic group and store in
+## etnic_groups dataset
+
+etnic_groups %>%
+  mutate(expected_counts = p * n_tot_unemp) -> expected_df
+
+## calculate observed amount of unemployed per etnic group and store in
+## observed_df dataset
+
+gss_re %>% 
+  filter(unemp == "Yes") %>%
+  group_by(race) %>%
+  summarise(observed_p = n()) -> observed_df
+
+## join the two dataset in a single one
+
+final_df <- full_join(observed_df, expected_df, by="race")
+
+final_df
+```
+
+### 5.2 Inference
+
+Hypothesis
+
+**Null hypothesis**: The distribution of unemployement follows the hypothesized 
+distribution. The hypothesized distribution is the overall distribution of 
+people belonging to different etnic groups.
+
+**Alternate hypothesis**: The distribution of observed proportion of unemployed
+does not follow the hypothesized distribution.
+
+we will test theese hypothesis with the chi-square goodness of fit test. First
+we have to check if the conditions for applying the test are satisfied.
+
+Check Conditions
+
+1. **Independence**: the GSS dataset is collected from a random sample survey. 
+We safely assume that the interviews are independent.
+
+2. **Expected counts**: the expected count for each cell should be higher than
+a minimum of 5. This condition is met.
+
+3. **Degrees of Freedom**: the degrees of freedom should be at least 2. In our
+study the degrees of freedom is 3-1 = 2.
+
+Conditions are met, we can proceed with the chi-squared test.
+
+### 5.3 Chi-Squared goodness of fit
+
+```{r}
+chisq.test(x = final_df$observed_p, p = final_df$p)```
+```
+
+The chi-squared value is 168.36 with a p-value of almost zero. We can reject the
+null hypothesis, the observed distribution of unemployement rates among different
+etnic groups doesn't follow the expected distribution.
+
+### 5.4 Finding
+
+We have found evidence that the unemployment rate between different etnic groups
+is not equally distribuited, with more observed than expected proportion of
+unemployed between other than "White" etnic group.
+
+* * * 
+
+## 6. Income disparity baser on region of interview
+
+Variables analyzed to answer this question:
+
+1. **region**: A categorical variable, a nine-point scale, that classifies the
+region of interview into 1 - New England, 2 - Middle Atlantic, 3 - East North
+Central, 4 - West North Central, 5 - South Atlantic, 6 - East South Central,
+7 - West South Central, 8 - Mountain, 9 - Pacific
+
+2. **coninc**: Inflation-adjusted total family income.
+
+We prepare first a simpler dataset, and remove null values:
+
+```{r}
+gss %>%
+  filter(!is.na(region) & !is.na(coninc)) %>%
+  select(region, coninc)  -> gss_reg
+
+dim(gss_reg)
+```
+
+We have now 51232 rows from the starting 57061.
+ 
+### 6.1 Exploratory Data Analysis
+
+```{r}
+table(gss_reg$region)
+```
+
+Quickly checking the above table, we see that we have a fair amount of observation
+in each of the 9 regions. Let's see how the total income distribution looks like
+for each of the 9 regions:
+
+```{r}
+ggplot(data = gss_reg, aes(x = coninc)) + geom_histogram() + facet_wrap(~region)
+```
+
+**Observations:**
+
+1. The shape of the distribution of income seems to be the same, with a strong
+right schewness. Even if the size of the sample is different from region to
+region, with a minimum in New England and a maximum in South Atlantic,
+(see file Income_per_Regions.pdf).
+
+### 6.2 Inference
+
+Hypothesis
+
+**Null hypothesis:** The mean of total family income with 
+inflation correction is the same across different regions.
+
+**Alternative hypothesis:** The mean of total family income with 
+inflation correction is the different between at least two regions.
+
+We have to compare the mean value between more than 2 groups of citizenship, 
+so we will use the ANOVA analysis. First we check the necessary conditions in
+order to perform the ANOVA analysis.
+
+Check Conditions
+
+1. **Independence**: the GSS dataset is collected from a random sample survey. 
+We safely assume that the interviews are independent.
+
+2. **Nearly normal distributions within each group**: To verify the normality of
+distribution, we explore the quantile-quantile plot for each of the nine cases.
+
+```{r}
+# 9 graphs in 3 rows
+par(mfrow = c(3,3))
+
+# Iterate over the groups and graph a QQ plot to test normality
+groups = c("New England", "Middle Atlantic", "E. Nor. Central",
+	"W. Nor. Central", "South Atlantic", "E. Sou. Central", 
+	"W. Sou. Central", "Mountain", "Pacific")
+
+for (i in 1:9) {
+	df = gss_reg %>% filter(region == groups[i])  
+	qqnorm(df$coninc, main = groups[i])
+	qqline(df$coninc)
+}
+```
+*Observations:*
+
+There is a significant deviation from standard normal distribution in each of the
+nine groups especially in the upper quantile, which is consistent with the
+strong skewness of the distributions, (see the file
+Regions_and_Income_normality_check.pdf)
+
+3. **Variability**: The variability across the groups needs to be about equal. 
+
+```{r}
+ggplot(data = gss_reg, aes(x = region, y = coninc)) + 
+  geom_boxplot(aes(fill = region))
+```
+
+The variability seems consistent between the nine groups.
+
+Based on the above observations we can perform the ANOVA analysis, keeping in mind 
+condition 2 was not satisfied, so we need to be cautious in interpreting 
+the results of ANOVA.
+
+### 6.3 ANOVA
+
+```{r}
+anova(lm(coninc ~ region, data = gss_reg))
+```
+
+We have a F-statistics of 90.335 and p-values almost zero. We have strong evidence
+that at least a pair of region groups have different main total inflation corrected
+family income, that cannot be explained simply by sampling variability.
+To analize which pair of groups has different income we Type I error.
+
+R has the following function tha performs pairwise t-tests with the 
+Bonferroni correction.
+
+```{r}
+pairwise.t.test(gss_reg$coninc, gss_reg$region, p.adj="bonferroni")
+```
+
+*Observations:*
+
+Many pairs of values have a p-value close to 1. So we have evidence that the mean
+total inflation corrected family income is different in different regions of 
+the U.S. and this difference cannot be explained by the sampling variability. 
+
+### Findings
+
+Although ANOVA conditions were not fulfilled, as we observed from exploratory data 
+analysis, we observed the income to be different between regions.
+Strongest difference is between following pairs:
+
+"Pacific" and "Middle Atlantic"
+"Mountain" and "E. Nor. Central"
+"South Atlantic" and "W. Nor. Central"
+"W. Sou. Central" and "W. Nor. Central"
+"Mountain" and "W. Nor. Central"
+"Mountain" and "New England"
+
+* * * 
+
+## Conclusion
+
+In this project, it was used the Social Survey Coursera Extract dataset which
+was a reduced version of the original, offered by the Coursera course in
+Inferential Statistics by Duke University.
+I drew statistical inferences for each research question and the resultscan 
+be generalized to the entire U.S. population.
+
+
